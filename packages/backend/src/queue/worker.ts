@@ -1,4 +1,4 @@
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and, or, lte, isNull, sql } from "drizzle-orm";
 import { db, sqlite } from "../db/index.js";
 import { messages, MessageStatus } from "../db/schema.js";
 import { config as appConfig } from "../config.js";
@@ -72,6 +72,7 @@ const pickNextMessage = (): {
   content: string;
 } | null => {
   const pickTransaction = sqlite.transaction(() => {
+    const now = new Date();
     const row = db
       .select({
         id: messages.id,
@@ -79,8 +80,16 @@ const pickNextMessage = (): {
         content: messages.content,
       })
       .from(messages)
-      .where(eq(messages.status, MessageStatus.QUEUED))
-      .orderBy(asc(messages.scheduledAt))
+      .where(
+        and(
+          eq(messages.status, MessageStatus.QUEUED),
+          or(
+            isNull(messages.scheduledFor),
+            lte(messages.scheduledFor, now)
+          )
+        )
+      )
+      .orderBy(asc(messages.scheduledFor))
       .limit(1)
       .get();
 

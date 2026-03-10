@@ -4,6 +4,7 @@ export interface Message {
   content: string;
   status: MessageStatus;
   scheduledAt: string;
+  scheduledFor: string | null;
   sentAt: string | null;
   deliveredAt: string | null;
   createdAt: string;

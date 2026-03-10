@@ -41,10 +41,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export async function scheduleMessage(
   phoneNumber: string,
   content: string,
+  scheduledFor?: string,
 ): Promise<Message> {
+  const body: Record<string, string> = { phoneNumber, content };
+  if (scheduledFor) {
+    body.scheduledFor = scheduledFor;
+  }
   const result = await request<ApiResponse<Message>>('/messages', {
     method: 'POST',
-    body: JSON.stringify({ phoneNumber, content }),
+    body: JSON.stringify(body),
   });
   return result.data;
 }

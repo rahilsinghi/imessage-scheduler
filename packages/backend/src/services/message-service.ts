@@ -9,9 +9,14 @@ export interface QueueConfig {
   messagesPerTick: number;
 }
 
-export const createMessage = (phoneNumber: string, content: string): Message => {
+export const createMessage = (
+  phoneNumber: string,
+  content: string,
+  scheduledFor?: number
+): Message => {
   const now = new Date();
   const id = uuidv4();
+  const scheduledForDate = scheduledFor != null ? new Date(scheduledFor) : now;
 
   const rows = db
     .insert(messages)
@@ -21,13 +26,14 @@ export const createMessage = (phoneNumber: string, content: string): Message => 
       content,
       status: MessageStatus.QUEUED,
       scheduledAt: now,
+      scheduledFor: scheduledForDate,
       createdAt: now,
       updatedAt: now,
     })
     .returning()
     .all();
 
-  console.log(`[message-service] Created message ${id} for ${phoneNumber}`);
+  console.log(`[message-service] Created message ${id} for ${phoneNumber} (scheduledFor: ${scheduledForDate.toISOString()})`);
   return rows[0];
 };
 

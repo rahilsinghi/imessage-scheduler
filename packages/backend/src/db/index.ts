@@ -24,6 +24,7 @@ sqlite.exec(`
     content TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'QUEUED',
     scheduled_at INTEGER NOT NULL,
+    scheduled_for INTEGER,
     sent_at INTEGER,
     delivered_at INTEGER,
     created_at INTEGER NOT NULL,
@@ -35,6 +36,14 @@ sqlite.exec(`
     value TEXT NOT NULL
   );
 `);
+
+// Migration: add scheduled_for column if it doesn't exist (for existing databases)
+const columns = sqlite.pragma("table_info(messages)") as Array<{ name: string }>;
+const hasScheduledFor = columns.some((col) => col.name === "scheduled_for");
+if (!hasScheduledFor) {
+  sqlite.exec("ALTER TABLE messages ADD COLUMN scheduled_for INTEGER;");
+  console.log("[db] Migrated: added scheduled_for column to messages table");
+}
 
 console.log(`[db] Connected to ${config.databaseUrl}`);
 

@@ -17,6 +17,7 @@ export const messages = sqliteTable("messages", {
   content: text("content").notNull(),
   status: text("status").notNull().default(MessageStatus.QUEUED),
   scheduledAt: integer("scheduled_at", { mode: "timestamp_ms" }).notNull(),
+  scheduledFor: integer("scheduled_for", { mode: "timestamp_ms" }),
   sentAt: integer("sent_at", { mode: "timestamp_ms" }),
   deliveredAt: integer("delivered_at", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),

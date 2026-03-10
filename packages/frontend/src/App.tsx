@@ -47,11 +47,14 @@ export function App() {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 mb-3 shadow-lg shadow-blue-500/20">
+            <span className="text-xl">💬</span>
+          </div>
           <h1 className="text-2xl font-bold text-text-primary tracking-tight">
             iMessage Scheduler
           </h1>
           <p className="text-sm text-text-secondary mt-1">
-            Schedule and manage your iMessages
+            Queue, schedule, and track your iMessages
           </p>
         </div>
 
@@ -82,20 +85,22 @@ export function App() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'scheduler' ? (
-          <div className="space-y-6">
-            <ScheduleForm onScheduled={refetch} onToast={showToast} />
-            <MessageList
-              messages={messages}
-              loading={loading}
-              error={error}
-              onRefetch={refetch}
-              onToast={showToast}
-            />
-          </div>
-        ) : (
-          <Dashboard onToast={showToast} />
-        )}
+        <div key={activeTab} className="tab-content-enter">
+          {activeTab === 'scheduler' ? (
+            <div className="space-y-6">
+              <ScheduleForm onScheduled={refetch} onToast={showToast} />
+              <MessageList
+                messages={messages}
+                loading={loading}
+                error={error}
+                onRefetch={refetch}
+                onToast={showToast}
+              />
+            </div>
+          ) : (
+            <Dashboard onToast={showToast} />
+          )}
+        </div>
 
         {/* Footer */}
         <p className="text-center text-xs text-text-tertiary mt-8">

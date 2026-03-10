@@ -26,6 +26,7 @@ const createMessageSchema = z.object({
     .string()
     .min(1, "content is required")
     .max(1600, "content exceeds 1600 character limit"),
+  scheduledFor: z.string().datetime().optional(),
 });
 
 const updateConfigSchema = z.object({
@@ -46,7 +47,10 @@ const messageQuerySchema = z.object({
 messagesRouter.post("/", (req, res, next) => {
   try {
     const parsed = createMessageSchema.parse(req.body);
-    const message = createMessage(parsed.phoneNumber, parsed.content);
+    const scheduledForMs = parsed.scheduledFor
+      ? new Date(parsed.scheduledFor).getTime()
+      : undefined;
+    const message = createMessage(parsed.phoneNumber, parsed.content, scheduledForMs);
     res.status(201).json({ data: message });
   } catch (error) {
     if (error instanceof z.ZodError) {
