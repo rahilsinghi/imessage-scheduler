@@ -1,6 +1,27 @@
 # iMessage Scheduler
 
-A message scheduling system that queues and sends iMessages at configurable intervals via macOS Messages.app.
+Schedule and send iMessages from your Mac at configurable intervals. Built as a monorepo with three services: a React frontend, an Express backend with a FIFO message queue, and a macOS iMessage gateway.
+
+## Quick Start
+
+```bash
+git clone https://github.com/rahilsinghi/imessage-scheduler.git
+cd imessage-scheduler
+./start.sh
+```
+
+That's it. The script checks prerequisites, installs dependencies, and opens the app at **http://localhost:5173**.
+
+> **Requirements:** macOS with Messages.app signed in, Node.js 20+
+
+## Features
+
+- **Schedule messages** for a specific date and time, or send immediately
+- **FIFO queue** with configurable send interval (default: 1 message per hour)
+- **Live status tracking** — watch messages progress through QUEUED → SENT → DELIVERED
+- **iMessage delivery** via macOS Messages.app (AppleScript bridge)
+- **Dashboard** with message stats and queue configuration
+- **Real-time updates** — UI polls every 5 seconds for status changes
 
 ## Architecture
 
@@ -18,43 +39,38 @@ A message scheduling system that queues and sends iMessages at configurable inte
                         └─────────┘           └───────────┘
 ```
 
-**Frontend** — React + TypeScript + Tailwind. Scheduling form, message list with live status updates, and an optional dashboard for stats and configuration.
+**Frontend** (`packages/frontend/`) — React 19, TypeScript, Vite, Tailwind CSS v4. Scheduling form with datetime picker, message list grouped by status, and a configuration dashboard.
 
-**Backend** — Express + TypeScript + Drizzle ORM + SQLite. Stores scheduled messages, exposes a REST API, and runs a FIFO queue worker that sends one message per tick to the gateway.
+**Backend** (`packages/backend/`) — Express, TypeScript, Drizzle ORM, SQLite. REST API, FIFO queue worker that respects scheduled times, configurable send interval.
 
-**Gateway** — Lightweight Express server that bridges HTTP to macOS iMessage. Receives send requests from the backend and executes AppleScript commands through `osascript` to deliver messages via Messages.app.
+**Gateway** (`packages/gateway/`) — Express, TypeScript, AppleScript. Receives HTTP requests from the backend and sends iMessages through macOS Messages.app via `osascript`.
 
-## Prerequisites
+## How It Works
 
-- **macOS** with Messages.app signed in to iMessage
-- **Node.js** ≥ 20
-- **pnpm** ≥ 9 (`npm install -g pnpm`)
+1. **Schedule** — Enter a phone number, message, and optional send time. Stored in SQLite as `QUEUED`.
+2. **Queue** — A FIFO worker picks the oldest queued message at a configurable interval (default: 1 hour). The interval and batch size are adjustable via the dashboard or the API. Messages scheduled for the future wait until their time arrives.
+3. **Send** — The worker forwards the message to the gateway, which executes AppleScript to deliver it via Messages.app. Status transitions: `QUEUED` → `ACCEPTED` → `SENT` (or `FAILED`).
+4. **Track** — The dashboard shows message counts by status and lets you adjust the send interval in real time.
 
-## Setup
+## Manual Setup
+
+If you prefer not to use the start script:
 
 ```bash
-# Clone and install
-git clone <repo-url>
-cd imessage-scheduler
+# Install pnpm if needed
+npm install -g pnpm
+
+# Install dependencies
 pnpm install
 
-# Configure (optional — defaults work out of the box)
+# Copy environment config (optional — defaults work out of the box)
 cp .env.example .env
-```
 
-## Running locally
-
-Start all three services with one command:
-
-```bash
+# Start all services
 pnpm dev
 ```
 
-This runs the gateway (:3002), backend (:3001), and frontend (:5173) concurrently.
-
-Open **http://localhost:5173** in your browser.
-
-To run services individually:
+Or run services individually:
 
 ```bash
 pnpm dev:gateway   # iMessage bridge on :3002
@@ -62,29 +78,21 @@ pnpm dev:backend   # API + queue worker on :3001
 pnpm dev:frontend  # React app on :5173
 ```
 
-## How it works
-
-1. **Schedule** — Enter a phone number and message in the UI. The backend stores it in SQLite with status `QUEUED`.
-
-2. **Queue processing** — A FIFO worker picks the oldest queued message at a configurable interval (default: 1 hour). The interval and batch size are adjustable via the dashboard or the API.
-
-3. **Delivery** — The worker sends the message to the gateway, which executes an AppleScript command to send it through Messages.app. The message status transitions: `QUEUED` → `ACCEPTED` → `SENT` (or `FAILED`).
-
-4. **Monitoring** — The dashboard tab shows message counts by status and lets you adjust the send interval in real time.
-
-## API
+## API Reference
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/messages` | Schedule a message `{ phoneNumber, content }` |
-| `GET` | `/api/messages` | List messages (optional `?status=QUEUED&limit=50`) |
+| `POST` | `/api/messages` | Schedule a message `{ phoneNumber, content, scheduledFor? }` |
+| `GET` | `/api/messages` | List messages (filter: `?status=QUEUED&limit=50`) |
 | `GET` | `/api/messages/:id` | Get a single message |
 | `DELETE` | `/api/messages/:id` | Cancel a queued message |
-| `GET` | `/api/stats` | Message counts by status |
-| `GET` | `/api/config` | Current queue configuration |
-| `PUT` | `/api/config` | Update send interval / batch size |
+| `GET` | `/api/stats` | Counts by status |
+| `GET` | `/api/config` | Queue configuration |
+| `PUT` | `/api/config` | Update send interval and batch size |
 
 ## Configuration
+
+All values have sensible defaults. Override via `.env` or the dashboard UI.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -95,7 +103,7 @@ pnpm dev:frontend  # React app on :5173
 | `MESSAGES_PER_TICK` | `1` | Messages sent per interval |
 | `DATABASE_URL` | `./data/messages.db` | SQLite database path |
 
-## Project structure
+## Project Structure
 
 ```
 imessage-scheduler/
@@ -116,18 +124,19 @@ imessage-scheduler/
 │       └── src/
 │           ├── imessage.ts  # AppleScript execution
 │           └── index.ts     # HTTP server
+├── start.sh               # One-command setup and launch
 ├── .env.example
 ├── pnpm-workspace.yaml
 └── package.json
 ```
 
-## Design decisions
+## Design Decisions
 
 - **SQLite over Redis/Postgres** — Zero external dependencies. The queue is backed by a single file, WAL mode enabled for concurrent reads. Appropriate for the throughput (messages per hour, not per second).
 
 - **Atomic FIFO pick** — The queue worker wraps SELECT + UPDATE in a SQLite transaction to prevent double-sends if the interval fires twice.
 
-- **AppleScript argument passing** — Phone numbers and message content are passed as positional arguments to `osascript`, not interpolated into the script string. This prevents injection.
+- **Safe AppleScript** — Phone numbers and message content are passed as positional arguments to `osascript`, not interpolated into the script string. Prevents injection.
 
 - **Separate gateway service** — The iMessage bridge runs as its own process so it can be swapped for a different delivery mechanism (SMS API, WhatsApp, etc.) without changing the backend.
 
@@ -137,4 +146,6 @@ imessage-scheduler/
 
 - The gateway requires macOS with Messages.app signed in. It will log a warning on startup if Messages.app is not detected but will not crash.
 - Messages are sent from whatever Apple ID is signed into Messages.app on the machine running the gateway.
-- The send interval is configurable at runtime via the dashboard or `PUT /api/config`. Changes take effect immediately (the worker restarts with the new interval).
+- When scheduling, messages wait in the queue until their scheduled time arrives.
+- The send interval is adjustable at runtime via the dashboard or `PUT /api/config`. Changes take effect immediately (the worker restarts with the new interval).
+- First-time macOS will prompt to allow Terminal/iTerm to control Messages.app.
