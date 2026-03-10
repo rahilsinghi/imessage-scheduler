@@ -1,0 +1,22 @@
+{
+  "name": "imessage-scheduler",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n gateway,backend,frontend -c blue,green,magenta \"pnpm --filter gateway dev\" \"pnpm --filter backend dev\" \"pnpm --filter frontend dev\"",
+    "dev:backend": "pnpm --filter backend dev",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:gateway": "pnpm --filter gateway dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "clean": "pnpm -r clean"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
